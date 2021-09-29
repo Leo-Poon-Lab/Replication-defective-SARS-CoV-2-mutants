@@ -1,7 +1,3 @@
-# Aim: identified highly conserved sequences that are shared by all known huaman and animal sarbecoviruses
-# Input: aligned amino acid sequences of different genes
-# Output: hihgly conserved regions of different genes in table format
-
 library(tidyverse)
 
 # 1. Generate lists of Sarbecoviruses
@@ -14,18 +10,13 @@ df_plus <- df_plus %>% filter(`Accession number` != "NC_045512")
 
 df_seqs <- bind_rows(df_seqs_nat, df_plus)
 df_seqs <- df_seqs %>% arrange(`Virus name`)
-writeLines(df_seqs$`Accession number`, "../data/fasta/ac_id.txt")
+# writeLines(df_seqs$`Accession number`, "../data/fasta/ac_id.txt")
 df_seqs$`Host species` <- gsub(" ", "_", df_seqs$`Host species`)
 df_seqs <- df_seqs[,c(1,2,4)]
 df_seqs <- left_join(df_seqs, df_seqs_ve[,c(2, 4, 5)])
-
 df_seqs <- left_join(df_seqs, df_seqs_nat[,c(3, 4:6)], "Accession number")
 
 write_csv(df_seqs, "../data/data_seqs_all.csv") # manual fill to xlsx
 
-# 2. Alignment of the sequences
-library(Biostrings)
-
-seq_gisaid <- readDNAStringSet("../data/fasta/gisaid_hcov-19_2021_09_16_08.fasta")
-seq_genbank <- readDNAStringSet("../data/fasta/sequence_nt.fasta")
-
+df_seqs_mod <- readxl::read_excel("../data/data_seqs_all.xlsx")
+writeLines(df_seqs_mod$Accession_number, "../data/fasta/ac_id.txt")
