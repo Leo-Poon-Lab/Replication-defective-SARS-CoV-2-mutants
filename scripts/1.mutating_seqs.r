@@ -10,6 +10,8 @@ dir.create("../results/mutants")
 
 seq_ref <- readDNAStringSet("../data/reference.fasta")
 df_orf <- read_csv("../data/ORF_SCoV2.csv")
+df_orf$length <- df_orf$stop - df_orf$start + 1
+save(seq_ref, df_orf, file="./helper/df_orf.rdata")
 df_mutable <- read_csv("../results/df_mutatable_region.csv")
 
 # helper function
@@ -21,8 +23,6 @@ QC_gene <- function(gene){
 	})
 	return(gene_corrected)
 }
-
-Check_TRS <- function(x) {} ##TODO
 
 # Mutant group 1: we will mutate the first two lysine codons of selected ORFs (not on conserved regions) to an amber codon (UAG)
 ## Mutant 1A: amber codons into the E and M genes.
@@ -81,9 +81,102 @@ write_csv(mutant_1a_log, "../results/mutants/mutant_1a_info.csv")
 writeXStringSet(mutant_1a_seq, "../results/mutants/mutant_1a_seq.fasta")
 
 ## mutant 1B: Amber codons into ORFs: 3a, 6, 7a, 7b and 10
-df_orf$sequence
 mutant_1b <- make_amber_mutant(ref=seq_ref, gene=c(paste0("ORF", c("3a", "6", "7a", "7b", "10"))), target_aa="K", pos_mutable_nt=df_mutable, mut_codon="tag", num_of_mut_each_gene=2)
 mutant_1b_log <- mutant_1b[[1]]
 mutant_1b_seq <- mutant_1b[[2]]
 write_csv(mutant_1b_log, "../results/mutants/mutant_1b_info.csv")
 writeXStringSet(mutant_1b_seq, "../results/mutants/mutant_1b_seq.fasta")
+
+# Mutant group 2: modify codon usages.
+## Mutant 2A: reshuffle codons while keeping the original codon usage
+### create a full-genome orf sequence
+source("./helper/make_full_genome.r")
+source("./helper/compare_seqs_to_table.r")
+source("./helper/make_regioned_data.r")
+
+#### mutant 2a_all_inter : reshuffle codons in all genes, allow inter-gene reshuffle
+rd_orf_full <- make_rd(list_genes=df_orf$sequence)
+set.seed(2022)
+rd_2a_all_inter <- codon_random(rd_orf_full, keep = T)
+stopifnot(translate(get_dna(rd_2a_all_inter)) == translate(seq_orf_full)) # All are silent mutations
+seq_2a_all_inter <- make_full_genome(seq_orf=get_dna(rd_2a_all_inter), list_genes=df_orf$sequence)
+names(seq_2a_all_inter) <- "Mutant_2A_all_inter"
+writeXStringSet(seq_2a_all_inter, "../results/mutants/mutant_2a_all_inter_seq.fasta")
+df_2a_all_inter <- compare_seqs(seq_int=seq_2a_all_inter, seq_ref=seq_ref)
+write_csv(df_2a_all_inter, "../results/mutants/mutant_2a_all_inter_info.csv")
+
+#### mutant 2a_all_intra : reshuffle codons in all genes, *avoid* inter-gene reshuffle
+orf_2a_all_intra <- sapply(df_orf$sequence, function(gene_t) {
+	rd_orf_gene_t <- make_rd(gene_t)
+	set.seed(2022)
+	rd_2a_all_intra_gene_t <- codon_random(rd_orf_gene_t, keep = T)
+	get_dna(rd_2a_all_intra_gene_t)
+})
+orf_2a_all_intra <- do.call(xscat, orf_2a_all_intra)
+seq_2a_all_intra <- make_full_genome(seq_orf=orf_2a_all_intra, list_genes=df_orf$sequence)
+names(seq_2a_all_intra) <- "Mutant_2A_all_intra"
+writeXStringSet(seq_2a_all_intra, "../results/mutants/mutant_2a_all_intra_seq.fasta")
+df_2a_all_intra <- compare_seqs(seq_int=seq_2a_all_intra, seq_ref=seq_ref)
+write_csv(df_2a_all_intra, "../results/mutants/mutant_2a_all_intra_info.csv")
+
+#### mutant 2a_os_inter : reshuffle codons in ORF1ab and Spike, allow inter-gene reshuffle
+list_genes_os <- df_orf$sequence[grepl("^S$", df_orf$sequence) | grepl("^nsp", df_orf$sequence)]
+rd_orf_os <- make_rd(list_genes=list_genes_os)
+set.seed(2022)
+rd_2a_os_inter <- codon_random(rd_orf_os, keep = T)
+seq_2a_os_inter <- make_full_genome(seq_orf=get_dna(rd_2a_os_inter), list_genes=list_genes_os)
+names(seq_2a_os_inter) <- "Mutant_2a_os_inter"
+writeXStringSet(seq_2a_os_inter, "../results/mutants/mutant_2a_os_inter_seq.fasta")
+df_2a_os_inter <- compare_seqs(seq_int=seq_2a_os_inter, seq_ref=seq_ref)
+write_csv(df_2a_os_inter, "../results/mutants/mutant_2a_os_inter_info.csv")
+
+#### mutant 2a_os_intra : reshuffle codons in ORF1ab and Spike, avoid inter-gene reshuffle
+orf_2a_os_intra <- sapply(list_genes_os, function(gene_t) {
+	rd_orf_gene_t <- make_rd(gene_t)
+	set.seed(2022)
+	rd_2a_os_intra_gene_t <- codon_random(rd_orf_gene_t, keep = T)
+	get_dna(rd_2a_os_intra_gene_t)
+})
+orf_2a_os_intra <- do.call(xscat, orf_2a_os_intra)
+seq_2a_os_intra <- make_full_genome(seq_orf=orf_2a_os_intra, list_genes=list_genes_os)
+names(seq_2a_os_intra) <- "Mutant_2a_os_intra"
+writeXStringSet(seq_2a_os_intra, "../results/mutants/mutant_2a_os_intra_seq.fasta")
+df_2a_os_intra <- compare_seqs(seq_int=seq_2a_os_intra, seq_ref=seq_ref)
+write_csv(df_2a_os_intra, "../results/mutants/mutant_2a_os_intra_info.csv")
+
+## Mutant 2B: 
+### This part was done based on our previous work: https://academic.oup.com/ve/article/6/1/veaa032/5837024?login=true
+### Using the previous alignment file, We tried to mutate/mimic the codon usage pattern to "Human_Caen1", "Human_KFMC-7", "Bat_KJ473821", "Rodent_SJHM", "Pangolin_P1E", "Swine_PHEV"
+### We try to mutate two ORFs: ORF1ab and Spike
+seq_betacov_orf1ab <- readDNAStringSet("../data/betacov_orf1ab.fasta")
+seq_betacov_orf1ab <- seq_betacov_orf1ab[-1]
+seq_betacov_spike <- readDNAStringSet("../data/betacov_spike.fasta")
+seq_betacov_spike <- seq_betacov_spike[-1]
+
+list_genes_orf1ab <- df_orf$sequence[grepl("^nsp", df_orf$sequence)]
+list_genes_spike <- "S"
+
+#### mutant 2b
+sapply(seq_along(seq_betacov_orf1ab), function(i) {
+	seq_bc_orf1ab_i <- seq_betacov_orf1ab[i]
+	seq_bc_spike_i <- seq_betacov_spike[i]
+	name_mut_i <- paste0("Mutant_2b_", names(seq_bc_orf1ab_i))
+	name_mut_sim_i <- paste0("Mutant_2b_", i)
+	
+	rd_2b_orf1ab_i <- input_seq(get_orf_seq(list_genes_orf1ab), get_mutable(list_genes_orf1ab))
+	set.seed(2022)
+	rd_2b_orf1ab_mut_i <- codon_mimic(rd_2b_orf1ab_i, alt=seq_bc_orf1ab_i)
+	
+	rd_2b_spike_i <- input_seq(get_orf_seq(list_genes_spike), get_mutable(list_genes_spike))
+	set.seed(2022)
+	rd_2b_spike_mut_i <- codon_mimic(rd_2b_spike_i, alt=seq_bc_spike_i)
+	
+	seq_orf_combined <- xscat(get_dna(rd_2b_orf1ab_mut_i), get_dna(rd_2b_spike_mut_i))
+	seq_2b_i <- make_full_genome(seq_orf=seq_orf_combined, list_genes=c(list_genes_orf1ab, list_genes_spike))
+
+	names(seq_2b_i) <- name_mut_i
+	writeXStringSet(seq_2b_i, paste0("../results/mutants/", name_mut_sim_i, "_seq.fasta"))
+	df_2b_i <- compare_seqs(seq_int=seq_2b_i, seq_ref=seq_ref)
+	write_csv(df_2b_i, paste0("../results/mutants/", name_mut_sim_i, "_info.csv"))
+})
+

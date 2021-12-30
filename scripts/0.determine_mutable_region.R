@@ -129,8 +129,19 @@ frameshift_orf_exclude <- unique(df_masking$orf[df_masking$frameshift_orfs_found
 frameshift_orf_exclude <- frameshift_orf_exclude[!is.na(frameshift_orf_exclude)]
 frameshift_orf_exclude # We identified 5 overlapping orf regions which seem to be modifiable, as mutations at these regions were found in different VOCs.
 
-# label Modifiable regions
-the modifiable regions should be: 1. is coding region; 2.not conserved in codon; 3.not enzyme binding sites; 4. not in regions with overlapped orfs, except mutations within such overlapped orf regions which were previously found in VOCs.
+# 6. check whether in the  transcription regulatory sequence (TRS) region
+## https://www.frontiersin.org/files/Articles/641445/fgene-12-641445-HTML-r1/image_m/fgene-12-641445-t001.jpg
+df_TRS_region <- tibble(start=c(70, 21556, 25385, 26237, 26473, 27041, 27388, 27888, 28260))
+df_TRS_region$stop <- df_TRS_region$start+5
+df_masking$in_trs_region <- sapply(df_masking$position_nt, function(x) {
+	any((x<=df_TRS_region$stop) & (x>=df_TRS_region$start))
+})
 
-df_masking$modifiable <- df_masking$coding & !df_masking$conserved_codon & !df_masking$enzyme_binding & (!df_masking$frameshift_orfs | (df_masking$orf %in% frameshift_orf_exclude))
+
+# label Modifiable regions
+# the modifiable regions should be: 1. is coding region; 2.not conserved in codon; 3.not enzyme binding sites; 4. not in regions with overlapped orfs, except mutations within such overlapped orf regions which were previously found in VOCs; 5. not in TRS regions.
+
+df_masking$modifiable <- df_masking$coding & !df_masking$conserved_codon & !df_masking$enzyme_binding & (!df_masking$frameshift_orfs | (df_masking$orf %in% frameshift_orf_exclude)) & !df_masking$in_trs_region
+
 write_csv(df_masking, "../results/df_mutatable_region.csv")
+df_masking <- read_csv("../results/df_mutatable_region.csv")

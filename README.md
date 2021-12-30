@@ -1,4 +1,4 @@
-# Designing replication-defective SARS-CoV-2 mutant vaccines with abnormal codon usages
+# Designing replication-defective SARS-CoV-2 mutant vaccines with biased codon usages
 
 *Authors*
 
