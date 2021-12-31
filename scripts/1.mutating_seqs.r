@@ -84,6 +84,7 @@ writeXStringSet(mutant_1a_seq, "../results/mutants/mutant_1a_seq.fasta")
 mutant_1b <- make_amber_mutant(ref=seq_ref, gene=c(paste0("ORF", c("3a", "6", "7a", "7b", "10"))), target_aa="K", pos_mutable_nt=df_mutable, mut_codon="tag", num_of_mut_each_gene=2)
 mutant_1b_log <- mutant_1b[[1]]
 mutant_1b_seq <- mutant_1b[[2]]
+names(mutant_1b_seq) <- "Mutant_1a"
 write_csv(mutant_1b_log, "../results/mutants/mutant_1b_info.csv")
 writeXStringSet(mutant_1b_seq, "../results/mutants/mutant_1b_seq.fasta")
 
@@ -180,3 +181,48 @@ sapply(seq_along(seq_betacov_orf1ab), function(i) {
 	write_csv(df_2b_i, paste0("../results/mutants/", name_mut_sim_i, "_info.csv"))
 })
 
+## Mutant 2C:
+### We aim to generate a mutant 2C which uses most unfavorable codons.
+#### In the initial version, we try to substitute all codons into their most under-represented synonymous counterparts, in ORF1ab and Spike respectively.
+list_genes_os <- df_orf$sequence[grepl("^S$", df_orf$sequence) | grepl("^nsp", df_orf$sequence)]
+list_genes_orf1ab <- df_orf$sequence[grepl("^nsp", df_orf$sequence)]
+list_genes_spike <- "S"
+
+find_underrepresented_codons <- function(seq_orf) {
+	cu_orf <- get_cu(seq_orf)
+	tmp <- sapply(names(AMINO_ACID_CODE), function(aa_i) {
+		codon_i <- names(GENETIC_CODE[GENETIC_CODE==aa_i])
+		idx_i <- colnames(cu_orf) %in% codon_i
+		cu_i <- cu_orf[,idx_i]
+		if(length(cu_i)==1){return(NULL)}else{return(names(cu_i)[which.min(cu_i)])}
+	})
+	return(unlist(tmp))
+}
+
+seq_orf_orf1ab <- get_orf_seq(list_genes_orf1ab)
+codon_ur_orf1ab <- find_underrepresented_codons(seq_orf_orf1ab)
+rd_2c_orf1ab_mut_i <- input_seq(seq_orf_orf1ab, get_mutable(list_genes_orf1ab))
+set.seed(2022)
+sapply(codon_ur_orf1ab, function(codon_i) {
+	print(codon_i)
+	rd_2c_orf1ab_mut_i <<- codon_to(rd_2c_orf1ab_mut_i, max.codon=codon_i)
+	return("")
+})
+
+seq_orf_spike <- get_orf_seq(list_genes_spike)
+codon_ur_spike <- find_underrepresented_codons(seq_orf_spike)
+rd_2c_spike_mut_i <- input_seq(seq_orf_spike, get_mutable(list_genes_spike))
+set.seed(2022)
+sapply(codon_ur_spike, function(codon_i) {
+	print(codon_i)
+	rd_2c_spike_mut_i <<- codon_to(rd_2c_spike_mut_i, max.codon=codon_i)
+	return("")
+})
+
+seq_orf_combined <- xscat(get_dna(rd_2c_orf1ab_mut_i), get_dna(rd_2c_spike_mut_i))
+seq_2c <- make_full_genome(seq_orf=seq_orf_combined, list_genes=c(list_genes_orf1ab, list_genes_spike))
+
+names(seq_2c) <- "Mutant_2c"
+writeXStringSet(seq_2c, paste0("../results/mutants/mutant_2c_seq.fasta"))
+df_seq_2c <- compare_seqs(seq_int=seq_2c, seq_ref=seq_ref)
+write_csv(df_seq_2c, paste0("../results/mutants/mutant_2c_info.csv"))

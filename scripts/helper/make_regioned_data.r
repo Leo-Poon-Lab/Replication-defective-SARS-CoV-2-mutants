@@ -1,12 +1,11 @@
 require(SynMut)
 load(file="./helper/df_orf.rdata")
 
-
-get_orf_seq <- function(list_genes) {
+get_orf_seq <- function(list_genes, seq=seq_ref) {
 	seq_orf_full <- lapply(list_genes, function(x) {
 		pos_start_t <- df_orf$start[df_orf$sequence==x]
 		pos_stop_t <- df_orf$stop[df_orf$sequence==x]
-		subseq(seq_ref, pos_start_t, pos_stop_t)
+		subseq(seq, pos_start_t, pos_stop_t)
 	})
 	seq_orf_full <- do.call(xscat, seq_orf_full)
 	return(seq_orf_full)
