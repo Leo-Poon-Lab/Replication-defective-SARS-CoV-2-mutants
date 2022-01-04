@@ -145,6 +145,21 @@ writeXStringSet(seq_2a_os_intra, "../results/mutants/mutant_2a_os_intra_seq.fast
 df_2a_os_intra <- compare_seqs(seq_int=seq_2a_os_intra, seq_ref=seq_ref)
 write_csv(df_2a_os_intra, "../results/mutants/mutant_2a_os_intra_info.csv")
 
+#### mutant 2a_os_inter_nonnsp : reshuffle codons in ORF1ab (full ORF1ab, no nsp) and Spike, allow inter-gene reshuffle
+list_genes_orf1ab <- df_orf$sequence[grepl("^nsp", df_orf$sequence)]
+list_genes_spike <- "S"
+rd_orf_o <- make_rd(list_genes=list_genes_orf1ab)
+rd_orf_s <- make_rd(list_genes=list_genes_spike)
+set.seed(2022)
+rd_2a_o_inter <- codon_random(rd_orf_o, keep = T)
+rd_2a_s_inter <- codon_random(rd_orf_s, keep = T)
+seq_orf_combined <- xscat(get_dna(rd_2a_o_inter), get_dna(rd_2a_s_inter))
+seq_2a_os_inter_nonnsp <- make_full_genome(seq_orf=seq_orf_combined, list_genes=c(list_genes_orf1ab, list_genes_spike))
+names(seq_2a_os_inter_nonnsp) <- "Mutant_2a_os_inter_nonsnp"
+writeXStringSet(seq_2a_os_inter_nonnsp, "../results/mutants/mutant_2a_os_inter_nonnsp.fasta")
+df_2a_os_inter_nonnsp <- compare_seqs(seq_int=seq_2a_os_inter_nonnsp, seq_ref=seq_ref)
+write_csv(df_2a_os_inter_nonnsp, "../results/mutants/mutant_2a_os_inter_nonnsp_info.csv")
+
 ## Mutant 2B: 
 ### This part was done based on our previous work: https://academic.oup.com/ve/article/6/1/veaa032/5837024?login=true
 ### Using the previous alignment file, We tried to mutate/mimic the codon usage pattern to "Human_Caen1", "Human_KFMC-7", "Bat_KJ473821", "Rodent_SJHM", "Pangolin_P1E", "Swine_PHEV"
