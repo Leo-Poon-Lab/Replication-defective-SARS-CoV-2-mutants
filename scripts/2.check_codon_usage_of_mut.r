@@ -6,8 +6,13 @@ library(tidyverse)
 load("./helper/df_orf.rdata")
 source("./helper/make_regioned_data.r")
 
-files_seq_mut <- list.files("../results/mutants/", "fasta", full.names=T)
-name_seq_mut <- gsub("_seq.fasta", "", list.files("../results/mutants/", "fasta"))
+# files_seq_mut <- list.files("../results/mutants/", "fasta", full.names=T)
+files_seq_mut <- list.files("../results/Final design for Syntethesis/", "fasta", full.names=T)
+name_seq_mut <- gsub(".fasta$", "", list.files("../results/Final design for Syntethesis/", "fasta"))
+name_seq_mut <- gsub("_seq_v2", "_v2_seq", name_seq_mut)
+name_seq_mut <- gsub("_seq_v3", "_v3_seq", name_seq_mut)
+name_seq_mut <- gsub("_seq.*", "", name_seq_mut)
+name_seq_mut <- gsub("_os.+", "", name_seq_mut)
 
 seqs_mut <- lapply(files_seq_mut, function(x) {
 	readDNAStringSet(x)

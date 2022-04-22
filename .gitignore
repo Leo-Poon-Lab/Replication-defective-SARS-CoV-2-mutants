@@ -4,3 +4,4 @@
 /reference/*
 # !/draft/methods.md
 *.zip
+.DS_Store
