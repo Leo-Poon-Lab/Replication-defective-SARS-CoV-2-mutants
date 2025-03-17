@@ -19,10 +19,10 @@ library(ggalt)
 
 
 # input data --------------------------------------------------------------
-meta_data <- read_csv("../data/meta_omsn_tidy_2020_02_20_pan.csv")
+meta_data <- read_csv("data/meta_omsn_tidy_2020_02_20_pan.csv")
 names(meta_data)[c(6, 9, 14, 20, 21)] <-
     c("Gene", "virus_species_ori", "Host_ori", "Host", "Virus Species")
-cds_omsn <- readDNAStringSet("../data/cleaned_cds_osmn_2020_02_20_pan.fasta")
+cds_omsn <- readDNAStringSet("data/cleaned_cds_osmn_2020_02_20_pan.fasta")
 meta_data$width <- width(cds_omsn)
 ###delete guangdong pangolin
 cds_omsn <- cds_omsn[!grepl("pangolin/Guangdong/P2S/2019", meta_data$cds_name)]
@@ -55,6 +55,7 @@ meta_data$Host <- factor(
         "others"
     )
 )
+meta_data$Host_design <- as.character(meta_data$Host)
 
 meta_data$strain_name[meta_data$strain_name == "2019-nCoV"] <- "SARS-CoV-2"
 meta_data$`Strain Name`[meta_data$`Strain Name` == "2019-nCoV"] <- "SARS-CoV-2"
@@ -64,7 +65,7 @@ meta_data$species_major[meta_data$species_major == "2019-nCoV"] <- "SARS-CoV-2"
 
 # seq_mut <- seq_mut_orf_orf1ab
 # gene <- "orf1ab"
-CA_analysis <- function(seq_mut, gene) {
+CA_analysis <- function(seq_mut, gene, output_suffix = "", mutant_pattern = "Mutant", resecured_list = NA, color_by_design = TRUE) {
     stopifnot(gene %in% unique(meta_data$Gene))
     # bind to ori data
     name_tmp = names(seq_mut)
@@ -87,6 +88,15 @@ CA_analysis <- function(seq_mut, gene) {
     meta_data_mut$important <- 2
     meta_data_mut$Type <- "Mutant"
     meta_data_mut$species_major <- "Other species" 
+    meta_data_mut$Host_design <- meta_data_mut$Host
+    if(color_by_design){
+      is_group_a <- grepl("^[ABCDEF]_a$", meta_data_mut$id)
+      is_group_b <- grepl("^[ABCDEF]_b$", meta_data_mut$id)
+      is_group_c <- grepl("^[ABCDEF]_c$", meta_data_mut$id)
+      meta_data_mut$Host_design[is_group_a] <- "Mutant_a"
+      meta_data_mut$Host_design[is_group_b] <- "Mutant_b"
+      meta_data_mut$Host_design[is_group_c] <- "Mutant_c"
+   }
 
     meta_data_mut <- bind_rows(meta_data, meta_data_mut)
     cds_omsn_mut <- c(cds_omsn, seq_mut)
@@ -149,9 +159,9 @@ CA_analysis <- function(seq_mut, gene) {
     ggplot() +
         geom_encircle(aes(x = F1, y = F2, group = kmodel), linetype = 2, alpha = 0.6,
             expand = 0.01, spread = 0.001) +
-        geom_point(aes(x = F1, y = F2, color = Host, shape = Host),
+        geom_point(aes(x = F1, y = F2, color = Host_design, shape = Host_design),
                 alpha = 0.5) +
-        scale_shape_manual(name = "Host", values = seq_along(unique(tmp_df$Host))) +
+        scale_shape_manual(name = "Host", values = seq_along(unique(tmp_df$Host_design))) +
         facet_wrap(vars(Gene)) +
         geom_text_repel(aes(x = F1, y = F2, label = "SARS-CoV-2"),
                         data = filter(tmp_df, id == "MN908947"),
@@ -159,9 +169,9 @@ CA_analysis <- function(seq_mut, gene) {
         geom_text_repel(aes(x = F1, y = F2, label = strain_name), alpha = 0.6,
                         data = tmp_df %>% filter(Host=="mutant"),
                         nudge_x = -1, direction = "y", size = 3) +
-        scale_color_viridis_d() +
+        scale_color_viridis_d(name = "Host") +
         ggtitle("WCA (synonymous codon usage)")
-    ggsave(paste0("../results/wca_mutant_", gene, "_Host.pdf"), plot=plot_wca_host)
+    ggsave(paste0("results/wca_mutant_", gene, "_Host_", output_suffix, ".pdf"), plot=plot_wca_host)
 
     plot_wca_species <- bind_cols(tmp_df, kmodel) %>%
         # filter(Gene == "membrane", species_major == "SARS-CoV-2")  %>% 
@@ -179,9 +189,15 @@ CA_analysis <- function(seq_mut, gene) {
                         data = tmp_df %>% filter(Host=="mutant"),
                         nudge_x = -1, direction = "y", size = 3) +
         scale_color_viridis_d(name = "Virus species") +
-        scale_fill_viridis_d(name = "Virus species") +    
+        scale_fill_viridis_d(name = "Virus species") +
+        theme(legend.position = "bottom", 
+              legend.box = "vertical", 
+              legend.margin = margin(5, 5, 5, 5),
+              legend.spacing.y = unit(0.1, "cm")) +
+        guides(color = guide_legend(nrow = 3), 
+               fill = guide_legend(nrow = 3)) +
         ggtitle("WCA (synonymous codon usage)")
-    ggsave(paste0("../results/wca_mutant_", gene, "_Species.pdf"), plot=plot_wca_species)
+    ggsave(paste0("results/wca_mutant_", gene, "_Species_", output_suffix, ".pdf"), plot=plot_wca_species)
 
     tmp_df <- tmp_df %>% mutate(Type = ifelse(important == 2, "Mutant", "WT"))
 
@@ -191,19 +207,54 @@ CA_analysis <- function(seq_mut, gene) {
             x = ~F1,
             y = ~F2,
             z = ~F3,
-            color = filter(tmp_df, Gene == gene) %>% .$Host,
+            color = filter(tmp_df, Gene == gene) %>% .$Host_design,
             text = filter(tmp_df, Gene == gene) %>% .$strain_name,
-            colors = viridis_pal(option = "D")(6),
+            colors = viridis_pal(option = "D")(length(unique(tmp_df$Host_design))),
             marker = list(size = 5, opacity = 0.5)
         ) %>%
         add_markers()
     p <- plotly_build(plot_wca_mut)
     sapply(seq_along(p$x$data), function(i){
-        x = p$x$data[[i]]
-        tmp = grepl("Mutant", x$text)
-        p$x$data[[i]]$marker$symbol <<- ifelse(tmp, "square", "circle")
+      x = p$x$data[[i]]
+      # Check if the point represents a mutant sequence
+      is_mutant <- grepl(mutant_pattern, x$text)
+      # Differentiate points by shape, size and opacity
+      p$x$data[[i]]$marker$symbol <<- ifelse(is_mutant, "diamond", "circle")
+      p$x$data[[i]]$marker$size <<- ifelse(is_mutant, 10, 5)
+      p$x$data[[i]]$marker$opacity <<- ifelse(is_mutant, 1.0, 0.6)
+      # Add outline for mutant points only (no line for non-mutants)
+      p$x$data[[i]]$marker$line$color <<- "black"
+      p$x$data[[i]]$marker$line$width <<- ifelse(is_mutant, 2, 0)
+      if(any(!is.na(resecured_list))) {
+        is_resecured <- x$text %in% resecured_list
+        p$x$data[[i]]$marker$line$color <<- ifelse(is_resecured, "red", p$x$data[[i]]$marker$line$color)
+        # p$x$data[[i]]$marker$line$width <<- ifelse(is_resecured, 10, p$x$data[[i]]$marker$line$width)
+        p$x$data[[i]]$marker$size <<- ifelse(is_resecured, 20, p$x$data[[i]]$marker$size)
+        p$x$data[[i]]$marker$symbol <<- ifelse(is_resecured, "x", p$x$data[[i]]$marker$symbol)
+      }
+      if(color_by_design) {
+        is_group_a <- grepl("^[ABCDEF]_a$", x$text)
+        is_group_b <- grepl("^[ABCDEF]_b$", x$text)
+        is_group_c <- grepl("^[ABCDEF]_c$", x$text)
+        p$x$data[[i]]$marker$color <<- ifelse(is_group_a, "darkred", p$x$data[[i]]$marker$color)
+        p$x$data[[i]]$marker$color <<- ifelse(is_group_b, "darkblue", p$x$data[[i]]$marker$color)
+        p$x$data[[i]]$marker$color <<- ifelse(is_group_c, "darkgreen", p$x$data[[i]]$marker$color)
+      }
     })
-    htmlwidgets::saveWidget(p, paste0("../results/3d_mutant_", gene, ".html"))
+    # Save HTML widget
+    # Save as HTML widget
+    htmlwidgets::saveWidget(p, paste0("results/3d_mutant_", gene, "_", output_suffix, ".html"))
+
+    # # Save as PDF
+    # if (!requireNamespace("kaleido", quietly = TRUE)) {
+    #   # install.packages('reticulate')
+    #   # reticulate::install_miniconda()
+    #   # reticulate::conda_install('r-reticulate', 'python-kaleido')
+    #   # reticulate::conda_install('r-reticulate', 'plotly', channel = 'plotly')
+    #   # reticulate::use_miniconda('r-reticulate')
+    # }
+    # plotly::save_image(p, paste0("results/3d_mutant_", gene, "_", output_suffix, ".pdf"), 
+    #                   width = 800, height = 600)
 
 }
 
@@ -332,18 +383,18 @@ CA_analysis <- function(seq_mut, gene) {
 
 # ggarrange(plot_wca_host, plot_bca_host, common.legend = T, ncol = 1,
 #           legend = "right")
-# ggsave("../results/Figure_4.tiff", width = 10, height = 15,
+# ggsave("results/Figure_4.tiff", width = 10, height = 15,
 #        device = "tiff", dpi = 300, scale = 0.9,
 #        compress = "lzw")
-# # ggsave("../results/Figure_3.svg", width = 10, height = 15, dpi = 300, scale = 0.9)
+# # ggsave("results/Figure_3.svg", width = 10, height = 15, dpi = 300, scale = 0.9)
 
 # ggarrange(plot_wca_species, plot_bca_species, common.legend = T, nrow = 2,
 #           legend = "right")
-# ggsave("../results/Figure_5.tiff",
+# ggsave("results/Figure_5.tiff",
 #        width = 14, height = 15,
 #        device = "tiff", dpi = 300, scale = 0.9,
 #        compress = "lzw")
-# # ggsave("../results/Figure_4.svg", width = 12, height = 15, dpi = 300, scale = 0.9)
+# # ggsave("results/Figure_4.svg", width = 12, height = 15, dpi = 300, scale = 0.9)
 
 
 # ## 3D
@@ -360,7 +411,7 @@ CA_analysis <- function(seq_mut, gene) {
 #     ) %>%
 #     add_markers()
 
-# htmlwidgets::saveWidget(plot_wca_spike, "../results/plot_bca_spike.html")
+# htmlwidgets::saveWidget(plot_wca_spike, "results/plot_bca_spike.html")
 
 # plot_bca_membrane <-
 #     plot_ly(
@@ -375,7 +426,7 @@ CA_analysis <- function(seq_mut, gene) {
 #     ) %>%
 #     add_markers()
 
-# htmlwidgets::saveWidget(plot_bca_membrane, "../results/plot_bca_membrane.html")
+# htmlwidgets::saveWidget(plot_bca_membrane, "results/plot_bca_membrane.html")
 
 # plot_bca_orf1ab <-
 #     plot_ly(
@@ -390,7 +441,7 @@ CA_analysis <- function(seq_mut, gene) {
 #     ) %>%
 #     add_markers()
 
-# htmlwidgets::saveWidget(plot_bca_orf1ab, "../results/plot_bca_orf1ab.html")
+# htmlwidgets::saveWidget(plot_bca_orf1ab, "results/plot_bca_orf1ab.html")
 
 # plot_bca_nucleocapsid <-
 #     plot_ly(
@@ -405,7 +456,7 @@ CA_analysis <- function(seq_mut, gene) {
 #     ) %>%
 #     add_markers()
 
-# htmlwidgets::saveWidget(plot_bca_nucleocapsid, "../results/plot_bca_nucleocapsid.html")
+# htmlwidgets::saveWidget(plot_bca_nucleocapsid, "results/plot_bca_nucleocapsid.html")
 
 # # scree plot --------------------------------------------------------------
 
@@ -431,14 +482,14 @@ CA_analysis <- function(seq_mut, gene) {
 # ggplot(df_eig_all) +
 #     geom_col(aes(x = id, y = value)) +
 #     facet_wrap(vars(group), ncol = 4)
-# ggsave("../results/Figure_S8.tiff",
+# ggsave("results/Figure_S8.tiff",
 #        width = 12, height = 12,
 #        device = "tiff", dpi = 300, scale = 0.8,
 #        compress = "lzw")
 
 
 # # acession ID -------------------------------------------------------------
-# write_csv(meta_data, "../results/meta_data_beta_cov_id.csv")
+# write_csv(meta_data, "results/meta_data_beta_cov_id.csv")
 
 
 # # codon distance ----------------------------------------------------------

@@ -1,5 +1,5 @@
 require(SynMut)
-load(file="./helper/df_orf.rdata")
+load(file="scripts/helper/df_orf.rdata")
 
 get_orf_seq <- function(list_genes, seq=seq_ref) {
 	seq_orf_full <- lapply(list_genes, function(x) {
