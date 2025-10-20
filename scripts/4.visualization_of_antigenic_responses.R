@@ -182,7 +182,7 @@ colors_t_full <- c(
   "cb1 + RG_WT SARS-CoV-2" = "#800020", # Burgundy/Wine
   "cb1 + VoC_EG.5" = "#228B22",    # Forest Green
   "cb1 + VoC_JN.1" = "#483D8B",    # Dark Purple/Slate Blue
-  "PBS + VoC_JN.2" = "#8B4513"     # Dark Brown/Saddle Brown
+  "PBS + VoC_JN.1" = "#8B4513"     # Dark Brown/Saddle Brown
 )
 
 df_plot_summary_full$group <- factor(df_plot_summary_full$group, levels=unique(df_plot_summary_full$group))
